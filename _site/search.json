@@ -145,5 +145,12 @@
     "title": "Take-home Exercise 1",
     "section": "Due Date",
     "text": "Due Date\n29th November 2022 (Tuesday), 11.59pm (midnight)."
+  },
+  {
+    "objectID": "In-class_Ex2/In_class_Ex2.html#getting-started",
+    "href": "In-class_Ex2/In_class_Ex2.html#getting-started",
+    "title": "In-class_Ex2",
+    "section": "Getting Started",
+    "text": "Getting Started\nIn the code chunk below, p_load() of pacman package is used to install and load the following R packages into R environment:\n\nsf,\ntidyverse,\ntmap,\nspdep, and\nfunModeling will be used for rapid Exploratory Data Analysis\n\n\npacman::p_load(sf, tidyverse, tmap, spdep, funModeling)"
   }
 ]
