@@ -2,8 +2,4 @@
 title: "About"
 ---
 
-About this site
-
-```{r}
-1 + 1
-```
+## There will be Hands-on exercise, In-class exercise and take home exercise here!!
