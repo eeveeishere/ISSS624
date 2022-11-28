@@ -177,3 +177,157 @@ tmap_arrange(total, wp_functional, wp_nonfunctional, unknown, asp=1, ncol=2 )
 
 
 ```
+
+Computing (Queen) contiguity based neighbours
+
+```{r}
+wm_q <- poly2nb(nga_wp, queen = TRUE)
+summary(wm_q)
+```
+
+The summary report shows that there are 774 region in Nigeria. Region 86 has no neighbour, 138 and 506 has only 1 neighbour and region 508 has the most number of neighbour 14.
+
+```{r}
+wm_q[[1]]
+```
+
+```{r}
+nga_wp$ADM2_EN[1]
+```
+
+```{r}
+nb1 <- wm_q[[1]]
+nb1 <- nga_wp$ADM2_EN[nb1]
+nb1
+```
+
+```{r}
+set.ZeroPolicyOption(TRUE)
+```
+
+```{r}
+rswm_q <- nb2listw(wm_q,
+                   style = "W",
+                   zero.policy = TRUE)
+rswm_q
+```
+
+Maron's \| test
+
+```{r}
+moran.test(nga_wp$`wpt non-functional`,
+           listw = rswm_q,
+           zero.policy = TRUE,
+           na.action = na.omit)
+```
+
+Computing Monte Carlo Moran's \|
+
+```{r}
+set.seed(1234)
+bperm = moran.mc(nga_wp$`wpt non-functional`,
+                 listw = rswm_q,
+                 nsim = 999,
+                 zero.policy = TRUE,
+                 na.action = na.omit)
+bperm
+```
+
+Visualising Monte Carlo Moran's \|
+
+```{r}
+mean(bperm$res[1:999])
+```
+
+```{r}
+var(bperm$res[1:999])
+```
+
+```{r}
+summary(bperm$res[1:999])
+```
+
+```{r}
+ggplot(as.data.frame(bperm[7]),aes(x=res)) +
+  geom_density(fill = "lightgrey") +
+  geom_vline(aes(xintercept=0.43393),
+             color = "red", linetype = "dashed", size = 1) +
+  labs(title = "Monte Carlo simulation of Moran's |",
+       x = "Test statistic",
+       y = "Density")
+```
+
+Compute Spatial Correlogram
+
+```{r}
+MI_corr <- sp.correlogram(wm_q,
+                          nga_wp$`wpt non-functional`,
+                          order = 6,
+                          method = "I",
+                          style = "W")
+plot(MI_corr)
+```
+
+```{r}
+print(MI_corr)
+```
+
+Compute local Moran's \|
+
+```{r}
+fips <- order(nga_wp$ADM2_EN)
+localMI <- localmoran(nga_wp$`wpt non-functional`,rswm_q)
+head(localMI)
+```
+
+```{r}
+nga_wp.localMI <- cbind(nga_wp,localMI) %>%
+  rename(Pr.Ii = Pr.z....E.Ii..)
+```
+
+Mapping local moran's \| values
+
+```{r}
+tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Ii",
+          style = "pretty",
+          palette = "RdBu",
+          title = "local moran statistics") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(legend.width = 0.35,
+            legend.height = 0.25)
+```
+
+Mapping local Moran's \| p-values
+
+```{r}
+tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Pr.Ii",
+          breaks = c(-Inf,0.001, 0.01, 0.05, 0.1,Inf),
+          palette = "-Blues",
+          title = "local Moran's I p-values") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(legend.width = 0.35,
+            legend.height = 0.25)
+```
+
+Mapping both local Moran's \| values and p-values
+
+```{r}
+localMI.map <- tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Ii", 
+          style = "pretty", 
+          title = "local moran statistics") +
+  tm_borders(alpha = 0.5)
+
+pvalue.map <- tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Pr.Ii", 
+          breaks=c(-Inf, 0.001, 0.01, 0.05, 0.1, Inf),
+          palette="-Blues", 
+          title = "local Moran's I p-values") +
+  tm_borders(alpha = 0.5)
+
+tmap_arrange(localMI.map, pvalue.map, ncol=2)
+```
+
+Creating a Lisa cluster Map
