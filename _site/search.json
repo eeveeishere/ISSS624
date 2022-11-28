@@ -68,5 +68,54 @@
     "title": "Take-home Exercise 1",
     "section": "Due Date",
     "text": "Due Date\n29th November 2022 (Tuesday), 11.59pm (midnight)."
+  },
+  {
+    "objectID": "Take-home_Ex1/Take-home_Ex1.html#setting-the-scene",
+    "href": "Take-home_Ex1/Take-home_Ex1.html#setting-the-scene",
+    "title": "Take home Exercise 1",
+    "section": "Setting the Scene",
+    "text": "Setting the Scene\nWater is an important resource to mankind. Clean and accessible water is critical to human health. It provides a healthy environment, a sustainable economy, reduces poverty and ensures peace and security. Yet over 40% of the global population does not have access to sufficient clean water. By 2025, 1.8 billion people will be living in countries or regions with absolute water scarcity, according to UN-Water. The lack of water poses a major threat to several sectors, including food security. Agriculture uses about 70% of the world's accessible freshwater.\nDeveloping countries are most affected by water shortages and poor water quality. Up to 80% of illnesses in the developing world are linked to inadequate water and sanitation. Despite technological advancement, providing clean water to the rural community is still a major development issues in many countries globally, especially countries in the Africa continent.\nTo address the issue of providing clean and sustainable water supply to the rural community, a global Water Point Data Exchange (WPdx) project has been initiated. The main aim of this initiative is to collect water point related data from rural areas at the water point or small water scheme level and share the data via WPdx Data Repository, a cloud-based data library. What is so special of this project is that data are collected based on WPDx Data Standard."
+  },
+  {
+    "objectID": "Take-home_Ex1/Take-home_Ex1.html#getting-started",
+    "href": "Take-home_Ex1/Take-home_Ex1.html#getting-started",
+    "title": "Take home Exercise 1",
+    "section": "Getting Started",
+    "text": "Getting Started\nIn the code chunk below, p_load() of pacman package is used to install and load the following R packages into R environment:\n\nsf,\ntidyverse,\ntmap,\nspdep, and\nfunModeling will be used for rapid Exploratory Data Analysis\n\n\npacman::p_load(sf, tidyverse, tmap, spdep, funModeling)\n\nIn this in-class data, two geospatial data sets will be used, they are:\ngeo_export\nnga_admbnda_adm2_osgod_20190417"
+  },
+  {
+    "objectID": "Take-home_Ex1/Take-home_Ex1.html#importing-water-point-geospatial-data",
+    "href": "Take-home_Ex1/Take-home_Ex1.html#importing-water-point-geospatial-data",
+    "title": "Take home Exercise 1",
+    "section": "Importing water point geospatial data",
+    "text": "Importing water point geospatial data\nFirst, we are going to import the water point geospatial data by using the code chunk below.\n\nwp <- st_read(dsn = \"geodata\",\n              layer = \"geo_export\",\n              crs = 4326)%>%\n  filter(clean_coun == \"Nigeria\")\n\nReading layer `geo_export' from data source \n  `C:\\eeveeishere\\ISSS624\\Take-home_Ex1\\geodata' using driver `ESRI Shapefile'\nSimple feature collection with 406566 features and 72 fields\nGeometry type: POINT\nDimension:     XY\nBounding box:  xmin: -92.05073 ymin: -27.31495 xmax: 92.32694 ymax: 26.65622\nGeodetic CRS:  WGS 84\n\n\nnext, write_rds() of readr package is used to save the extracted sf data table into an output file in rds data format. The output file is called wp_nga.rds and is is save in geodata subfoulder.\n\nwrite_rds(wp, \"geodata/wp_nga.rds\")\n\nNext, we are going to import the LGA boundary data into R environment by using the code chunk below.\n\nnga <- st_read(dsn = \"geodata\",\n               layer = \"nga_admbnda_adm2_osgof_20190417\",\n               crs = 4326)\n\nReading layer `nga_admbnda_adm2_osgof_20190417' from data source \n  `C:\\eeveeishere\\ISSS624\\Take-home_Ex1\\geodata' using driver `ESRI Shapefile'\nSimple feature collection with 774 features and 16 fields\nGeometry type: MULTIPOLYGON\nDimension:     XY\nBounding box:  xmin: 2.668534 ymin: 4.273007 xmax: 14.67882 ymax: 13.89442\nGeodetic CRS:  WGS 84"
+  },
+  {
+    "objectID": "Take-home_Ex1/Take-home_Ex1.html#data-wrangling",
+    "href": "Take-home_Ex1/Take-home_Ex1.html#data-wrangling",
+    "title": "Take home Exercise 1",
+    "section": "Data Wrangling",
+    "text": "Data Wrangling\nRecoding NA values into string\nIn the code chunk below, replace_na() is used to recode all the NA values in status_cle field into unknow,\n\nwp_nga <- read_rds(\"geodata/wp_nga.rds\")%>%\n  mutate(status_cle = replace_na(status_cle, \"Unknown\"))"
+  },
+  {
+    "objectID": "Take-home_Ex1/Take-home_Ex1.html#eda",
+    "href": "Take-home_Ex1/Take-home_Ex1.html#eda",
+    "title": "Take home Exercise 1",
+    "section": "EDA",
+    "text": "EDA\nIn the code chunk below, freq() of funModeling package is used to display the distribution of status_cle field in wp_nga.\n\nfreq(data = wp_nga,\n     input = 'status_cle')\n\n\n\n\n                        status_cle frequency percentage cumulative_perc\n1                       Functional     45883      48.29           48.29\n2                   Non-Functional     29385      30.93           79.22\n3                          Unknown     10656      11.22           90.44\n4      Functional but needs repair      4579       4.82           95.26\n5 Non-Functional due to dry season      2403       2.53           97.79\n6        Functional but not in use      1686       1.77           99.56\n7         Abandoned/Decommissioned       234       0.25           99.81\n8                        Abandoned       175       0.18           99.99\n9 Non functional due to dry season         7       0.01          100.00\n\n\nExtracting funtional water point\nusing classes in status_cle field.\n\nwpt_functional <- wp_nga %>%\n  filter(status_cle %in%\n           c(\"Functional\", \n             \"Functional but not in use\",\n             \"Functional but needs repair\"))\n\n\nfreq(data=wpt_functional, \n     input = 'status_cle')\n\n\n\n\n                   status_cle frequency percentage cumulative_perc\n1                  Functional     45883      87.99           87.99\n2 Functional but needs repair      4579       8.78           96.77\n3   Functional but not in use      1686       3.23          100.00\n\n\nSo all functional data will be called as wpt_functional.\nSimilarly for non-functional water point.\n\nwpt_nonfunctional <- wp_nga %>%\n  filter(status_cle %in%\n           c(\"Abandoned/Decommissioned\", \n             \"Abandoned\",\n             \"Non-Functional\",\n             \"Non functional due to dry season\",\n             \"Non-Functional due to dry season\"))\n\nExtracting water point with Unknown class.\nUsing filter() of dplyr to select water points with unknown status.\n\nwpt_unknown <- wp_nga %>%\n  filter(status_cle == \"Unknown\")"
+  },
+  {
+    "objectID": "Take-home_Ex1/Take-home_Ex1.html#performing-point-in-polygon-count",
+    "href": "Take-home_Ex1/Take-home_Ex1.html#performing-point-in-polygon-count",
+    "title": "Take home Exercise 1",
+    "section": "Performing point in polygon count",
+    "text": "Performing point in polygon count\n\nnga_wp <- nga %>% \n  mutate(`total wpt` = lengths(\n    st_intersects(nga, wp_nga))) %>%\n  mutate(`wpt functional` = lengths(\n    st_intersects(nga, wpt_functional))) %>%\n  mutate(`wpt non-functional` = lengths(\n    st_intersects(nga, wpt_nonfunctional))) %>%\n  mutate(`wpt unknown` = lengths(\n    st_intersects(nga, wpt_unknown)))\n\nSaving the Analytical Data Table\n\nnga_wp <- nga_wp %>%\n  mutate(pct_functional = `wpt functional`/`total wpt`) %>%\n  mutate(`pct_non-functional` = `wpt non-functional`/`total wpt`) %>%\n  select(3:4, 9:10, 18:23)\n\nNow I got the tidy sf data table and we will save the sf data table in rds format.\n\nwrite_rds(nga_wp, \"geodata/nga_wp.rds\")"
+  },
+  {
+    "objectID": "Take-home_Ex1/Take-home_Ex1.html#visualising-the-spatial-distribution-of-water-points",
+    "href": "Take-home_Ex1/Take-home_Ex1.html#visualising-the-spatial-distribution-of-water-points",
+    "title": "Take home Exercise 1",
+    "section": "Visualising the spatial distribution of water points",
+    "text": "Visualising the spatial distribution of water points\n\nnga_wp <- read_rds(\"geodata/nga_wp.rds\")\ntotal <- qtm(nga_wp, \"total wpt\") +\n  tm_layout(legend.height = 0.25, legend.width = 0.35)\nwp_functional <- qtm(nga_wp, \"wpt functional\") +\n   tm_layout(legend.height = 0.25, legend.width = 0.35)\nwp_nonfunctional <- qtm(nga_wp, \"wpt non-functional\") +\n   tm_layout(legend.height = 0.25, legend.width = 0.35)\nunknown <- qtm(nga_wp, \"wpt unknown\") +\n   tm_layout(legend.height = 0.25, legend.width = 0.35)\n\n\ntmap_arrange(total, wp_functional, wp_nonfunctional, unknown, asp=1, ncol=2 )"
   }
 ]

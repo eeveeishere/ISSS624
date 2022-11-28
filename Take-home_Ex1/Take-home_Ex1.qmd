@@ -1,52 +1,179 @@
 ---
-title: "Take-home Exercise 1"
+title: "Take home Exercise 1"
 editor: visual
+execute: 
+  warning: false
+  message: false
+format: html
 ---
 
-## The Task
+## 
 
-The specific tasks of this take-home exercise are as follows:
+# Take-home Exercise 1: Geospatial Analytics for Social Good
 
--   Using appropriate sf method, import the shapefile into R and save it in a simple feature data frame format. Note that there are three Projected Coordinate Systems of Nigeria, they are: EPSG: 26391, 26392, and 26303. You can use any one of them.
+## Setting the Scene
 
--   Using appropriate tidyr and dplyr methods, derive the proportion of functional and non-functional water point at LGA level.
+Water is an important resource to mankind. Clean and accessible water is critical to human health. It provides a healthy environment, a sustainable economy, reduces poverty and ensures peace and security. Yet over 40% of the global population does not have access to sufficient clean water. By 2025, 1.8 billion people will be living in countries or regions with absolute water scarcity, according to UN-Water. The lack of water poses a major threat to several sectors, including food security. Agriculture uses about 70% of the world\'s accessible freshwater.
 
--   Combining the geospatial and aspatial data frame into simple feature data frame.
+Developing countries are most affected by water shortages and poor water quality. Up to 80% of illnesses in the developing world are linked to inadequate water and sanitation. Despite technological advancement, providing clean water to the rural community is still a major development issues in many countries globally, especially countries in the Africa continent.
 
--   Performing outliers/clusters analysis by using appropriate local measures of spatial association methods.
+To address the issue of providing clean and sustainable water supply to the rural community, a global [Water Point Data Exchange (WPdx)](https://www.waterpointdata.org/about/) project has been initiated. The main aim of this initiative is to collect water point related data from rural areas at the water point or small water scheme level and share the data via WPdx Data Repository, a cloud-based data library. What is so special of this project is that data are collected based on [WPDx Data Standard](https://www.waterpointdata.org/wp-content/uploads/2021/04/WPDx_Data_Standard.pdf).
 
--   Performing hotspot areas analysis by using appropriate local measures of spatial association methods.
+## Getting Started
 
-### Thematic Mapping
+In the code chunk below, `p_load()` of *pacman* package is used to install and load the following R packages into R environment:
 
--   Plot maps to show the spatial distribution of functional and non-functional water point rate at LGA level by using appropriate thematic mapping technique provided by tmap package.
+-   sf,
 
-### Analytical Mapping
+-   tidyverse,
 
--   Plot hotspot areas and outliers/clusters maps of functional and non0functional water point rate at LGA level by using appropriate thematic mapping technique provided by tmap package.
+-   tmap,
 
-## Grading Criteria
+-   spdep, and
 
-This exercise will be graded by using the following criteria:
+-   funModeling will be used for rapid Exploratory Data Analysis
 
--   **Geospatial Data Wrangling (20 marks):** This is an important aspect of geospatial analytics. You will be assessed on your ability to employ appropriate R functions from various R packages specifically designed for modern data science such as readr, tidyverse (tidyr, dplyr, ggplot2), sf just to mention a few of them, to perform the entire geospatial data wrangling processes, including. This is not limited to data import, data extraction, data cleaning and data transformation. Besides assessing your ability to use the R functions, this criterion also includes your ability to clean and derive appropriate variables to meet the analysis need. (Warning: All data are like vast grassland full of land mines. Your job is to clear those mines and not to step on them).
+```{r}
+pacman::p_load(sf, tidyverse, tmap, spdep, funModeling)
+```
 
--   **Geospatial Analysis (30 marks):** In this exercise, you are expected to use the appropriate thematic and analytics mapping techniques and R functions introduced in class to analysis the geospatial data prepared. You will be assessed on your ability to derive analytical maps by using appropriate rate mapping techniques.
+In this in-class data, two geospatial data sets will be used, they are:
 
--   **Geovisualisation (20 marks):** In this section, you will be assessed on your ability to communicate the complex spatial statistics results in business friendly visual representations. This course is geospatial centric, hence, it is important for you to demonstrate your competency in using appropriate geovisualisation techniques to reveal and communicate the findings of your analysis.
+geo_export
 
--   **Reproducibility (20 marks):** This is an important learning outcome of this exercise. You will be assessed on your ability to provide a comprehensive documentation of the analysis procedures in the form of code chunks of Markdown. It is important to note that it is not enough by merely providing the code chunk without any explanation on the purpose and R function(s) used.
+nga_admbnda_adm2_osgod_20190417
 
--   **Bonus (10 marks):** Demonstrate your ability to employ methods beyond what you had learned in class to gain insights from the data. The methods used must be geospatial in nature.
+## Importing water point geospatial data
 
-## Submission Instructions
+First, we are going to import the water point geospatial data by using the code chunk below.
 
--   The write-up of the take-home exercise must be in **Quarto html document** format. You are required to publish the write-up on [**Netlify**](https://www.netlify.com/).
+```{r}
 
--   The R project of the take-home exercise must be pushed onto your [Github](https://github.com/) repository.
+wp <- st_read(dsn = "geodata",
+              layer = "geo_export",
+              crs = 4326)%>%
+  filter(clean_coun == "Nigeria")
+```
 
--   You are required to provide the links to Netlify service of the take-home exercise write-up and github repository on eLearn.
+next, write_rds() of readr package is used to save the extracted sf data table into an output file in rds data format. The output file is called wp_nga.rds and is is save in geodata subfoulder.
 
-## Due Date
+```{r}
+write_rds(wp, "geodata/wp_nga.rds")
+```
 
-29th November 2022 (Tuesday), 11.59pm (midnight).
+Next, we are going to import the LGA boundary data into R environment by using the code chunk below.
+
+```{r}
+nga <- st_read(dsn = "geodata",
+               layer = "nga_admbnda_adm2_osgof_20190417",
+               crs = 4326)
+```
+
+## Data Wrangling
+
+**Recoding NA values into string**
+
+In the code chunk below, replace_na() is used to recode all the NA values in status_cle field into unknow,
+
+```{r}
+wp_nga <- read_rds("geodata/wp_nga.rds")%>%
+  mutate(status_cle = replace_na(status_cle, "Unknown"))
+```
+
+## EDA
+
+In the code chunk below, freq() of funModeling package is used to display the distribution of status_cle field in wp_nga.
+
+```{r}
+freq(data = wp_nga,
+     input = 'status_cle')
+```
+
+Extracting funtional water point
+
+using classes in status_cle field.
+
+```{r}
+wpt_functional <- wp_nga %>%
+  filter(status_cle %in%
+           c("Functional", 
+             "Functional but not in use",
+             "Functional but needs repair"))
+```
+
+```{r}
+freq(data=wpt_functional, 
+     input = 'status_cle')
+```
+
+So all functional data will be called as wpt_functional.
+
+Similarly for non-functional water point.
+
+```{r}
+wpt_nonfunctional <- wp_nga %>%
+  filter(status_cle %in%
+           c("Abandoned/Decommissioned", 
+             "Abandoned",
+             "Non-Functional",
+             "Non functional due to dry season",
+             "Non-Functional due to dry season"))
+```
+
+Extracting water point with Unknown class.
+
+Using filter() of dplyr to select water points with unknown status.
+
+```{r}
+wpt_unknown <- wp_nga %>%
+  filter(status_cle == "Unknown")
+```
+
+## Performing point in polygon count
+
+```{r}
+nga_wp <- nga %>% 
+  mutate(`total wpt` = lengths(
+    st_intersects(nga, wp_nga))) %>%
+  mutate(`wpt functional` = lengths(
+    st_intersects(nga, wpt_functional))) %>%
+  mutate(`wpt non-functional` = lengths(
+    st_intersects(nga, wpt_nonfunctional))) %>%
+  mutate(`wpt unknown` = lengths(
+    st_intersects(nga, wpt_unknown)))
+```
+
+Saving the Analytical Data Table
+
+```{r}
+nga_wp <- nga_wp %>%
+  mutate(pct_functional = `wpt functional`/`total wpt`) %>%
+  mutate(`pct_non-functional` = `wpt non-functional`/`total wpt`) %>%
+  select(3:4, 9:10, 18:23)
+```
+
+Now I got the tidy sf data table and we will save the sf data table in rds format.
+
+```{r}
+write_rds(nga_wp, "geodata/nga_wp.rds")
+```
+
+## Visualising the spatial distribution of water points
+
+```{r}
+
+nga_wp <- read_rds("geodata/nga_wp.rds")
+total <- qtm(nga_wp, "total wpt") +
+  tm_layout(legend.height = 0.25, legend.width = 0.35)
+wp_functional <- qtm(nga_wp, "wpt functional") +
+   tm_layout(legend.height = 0.25, legend.width = 0.35)
+wp_nonfunctional <- qtm(nga_wp, "wpt non-functional") +
+   tm_layout(legend.height = 0.25, legend.width = 0.35)
+unknown <- qtm(nga_wp, "wpt unknown") +
+   tm_layout(legend.height = 0.25, legend.width = 0.35)
+
+
+tmap_arrange(total, wp_functional, wp_nonfunctional, unknown, asp=1, ncol=2 )
+
+
+```
