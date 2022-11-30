@@ -13,7 +13,7 @@ format: html
 
 ## Setting the Scene
 
-Water is an important resource to mankind. Clean and accessible water is critical to human health. It provides a healthy environment, a sustainable economy, reduces poverty and ensures peace and security. Yet over 40% of the global population does not have access to sufficient clean water. By 2025, 1.8 billion people will be living in countries or regions with absolute water scarcity, according to UN-Water. The lack of water poses a major threat to several sectors, including food security. Agriculture uses about 70% of the world\'s accessible freshwater.
+Water is an important resource to mankind. Clean and accessible water is critical to human health. It provides a healthy environment, a sustainable economy, reduces poverty and ensures peace and security. Yet over 40% of the global population does not have access to sufficient clean water. By 2025, 1.8 billion people will be living in countries or regions with absolute water scarcity, according to UN-Water. The lack of water poses a major threat to several sectors, including food security. Agriculture uses about 70% of the world's accessible freshwater.
 
 Developing countries are most affected by water shortages and poor water quality. Up to 80% of illnesses in the developing world are linked to inadequate water and sanitation. Despite technological advancement, providing clean water to the rural community is still a major development issues in many countries globally, especially countries in the Africa continent.
 
@@ -158,6 +158,10 @@ Now I got the tidy sf data table and we will save the sf data table in rds forma
 write_rds(nga_wp, "geodata/nga_wp.rds")
 ```
 
+```{r,eval=FALSE}
+nga_wp <- st_transform(nga_wp, 26391)
+```
+
 ## Visualising the spatial distribution of water points
 
 ```{r}
@@ -175,159 +179,587 @@ unknown <- qtm(nga_wp, "wpt unknown") +
 
 tmap_arrange(total, wp_functional, wp_nonfunctional, unknown, asp=1, ncol=2 )
 
-
 ```
 
-Computing (Queen) contiguity based neighbours
+From the graph we can tell that the number of water point is not evenly distributed.
 
 ```{r}
-wm_q <- poly2nb(nga_wp, queen = TRUE)
-summary(wm_q)
+st_crs(nga_wp)
 ```
 
-The summary report shows that there are 774 region in Nigeria. Region 86 has no neighbour, 138 and 506 has only 1 neighbour and region 508 has the most number of neighbour 14.
+## Visualising Regional Development Indicator
 
 ```{r}
-wm_q[[1]]
+equal <- tm_shape(nga_wp) +
+  tm_fill("wpt non-functional",
+          n = 5,
+          style = "equal") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Equal interval classification")
+
+quantile <- tm_shape(nga_wp) +
+  tm_fill("wpt non-functional",
+          n = 5,
+          style = "quantile") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Equal quantile classification")
+
+tmap_arrange(equal, 
+             quantile, 
+             asp=1, 
+             ncol=2)
 ```
 
-```{r}
-nga_wp$ADM2_EN[1]
-```
+The data is in polygon, however, there is a large variation in polygon size. To ensure the consistency scale of analysis, fixed distance method will be using.
+
+## Determine the centroid for each area
 
 ```{r}
-nb1 <- wm_q[[1]]
-nb1 <- nga_wp$ADM2_EN[nb1]
-nb1
+coords <- st_centroid(st_geometry(nga_wp))
 ```
 
-```{r}
-set.ZeroPolicyOption(TRUE)
-```
+## Determine the cutoff distance for fixed distance weight matrix
 
 ```{r}
-rswm_q <- nb2listw(wm_q,
-                   style = "W",
+k1 <- knn2nb(knearneigh(coords))
+k1dists <- unlist(nbdists(k1, coords))
+summary(k1dists)
+```
+
+The summary report shows that the maximum distance is 72.027 km, so this will be using as the upper threshold so that the distance band is large enough to ensure all features will have at least one neighbor.
+
+```{r}
+threshold <- max(unlist(nbdists(k1, coords)))
+```
+
+## Computing Fixed distance weight matrix
+
+```{r}
+wm_d73 <- dnearneigh(coords, 0, threshold)
+wm_d73
+```
+
+We are able to identify there is an average of 23 neighbors per region.
+
+## Visualizing the Distance weight Matrix
+
+```{r}
+par(mfrow=c(1,2))
+plot(nga_wp$geometry, border="lightgrey", main="1st nearest neighbours")
+plot(k1, coords, add=TRUE, col="red", length=0.08)
+plot(nga_wp$geometry, border="lightgrey", main="Distance link")
+plot(wm_d73, coords, add=TRUE, pch = 19, cex = 0.6)
+```
+
+## Assigning weights to each neighboring polygon
+
+```{r}
+wm73_lw <- nb2listw(wm_d73, 
+                   style="W", 
                    zero.policy = TRUE)
-rswm_q
+summary (wm73_lw )
 ```
 
-Maron's \| test
+In our case, each neighboring polygon will be assigned equal weight (style="W"). This is accomplished by assigning the fraction 1/(#ofneighbors) to each neighboring county then summing the weighted income values. While this is the most intuitive way to summaries the neighbors' values it has one drawback in that polygons along the edges of the study area will base their lagged values on fewer polygons thus potentially over- or under-estimating the true nature of the spatial autocorrelation in the data.
+
+## see the weight of the first polygon's neighbors
 
 ```{r}
-moran.test(nga_wp$`wpt non-functional`,
-           listw = rswm_q,
-           zero.policy = TRUE,
-           na.action = na.omit)
+wm73_lw$weights[10]
 ```
 
-Computing Monte Carlo Moran's \|
+## Using Moran's \| for Global Spatial Autocorrelation
+
+```{r}
+moran.test(nga_wp$`wpt non-functional`, 
+           listw=wm73_lw, 
+           zero.policy = TRUE, 
+           na.action=na.omit)
+```
+
+From the Moran's \| test, we can see that the p-value is 2.2e-16 and I value is 0.3264 which means that the overall spatial autocorrelation tend to be similarly clustered and is statically significant, null hypothesis can be rejected. To furture clarify the assumption of Moran's I. Monte Carlo simulation will be performed.
+
+## Computing Monte Carlo Moran's \|
+
+A total of 1000 simulation will be performed
 
 ```{r}
 set.seed(1234)
-bperm = moran.mc(nga_wp$`wpt non-functional`,
-                 listw = rswm_q,
-                 nsim = 999,
-                 zero.policy = TRUE,
-                 na.action = na.omit)
-bperm
-```
-
-Visualising Monte Carlo Moran's \|
-
-```{r}
-mean(bperm$res[1:999])
+MC_NF= moran.mc(nga_wp$`wpt non-functional`, 
+                listw=wm73_lw, 
+                nsim=999, 
+                zero.policy = TRUE, 
+                na.action=na.omit)
+MC_NF
 ```
 
 ```{r}
-var(bperm$res[1:999])
+set.seed(1234)
+MC_F= moran.mc(nga_wp$`wpt functional`, 
+                listw=wm73_lw, 
+                nsim=999, 
+                zero.policy = TRUE, 
+                na.action=na.omit)
+MC_F
+```
+
+From the result Moran \| value is \> 0,the overall spatial autocorrelation tend to be similarly clustered. The p value is 0.001 which is statically significant. Therefore, null hypothesis should be rejected. There is sign of clustering.
+
+## 
+
+Visualising Monte Carlo simulation of Moran's \|
+
+```{r}
+hist(MC_NF$res, 
+     freq=TRUE, 
+     breaks=100, 
+     xlab="Simulated Moran's I")
+abline(v=0, 
+       col="red") 
 ```
 
 ```{r}
-summary(bperm$res[1:999])
+hist(MC_F$res, 
+     freq=TRUE, 
+     breaks=100, 
+     xlab="Simulated Moran's I")
+abline(v=0, 
+       col="red") 
 ```
 
-```{r}
-ggplot(as.data.frame(bperm[7]),aes(x=res)) +
-  geom_density(fill = "lightgrey") +
-  geom_vline(aes(xintercept=0.43393),
-             color = "red", linetype = "dashed", size = 1) +
-  labs(title = "Monte Carlo simulation of Moran's |",
-       x = "Test statistic",
-       y = "Density")
-```
+## Compute Moran's \| correlogram
 
-Compute Spatial Correlogram
+```{r,eval=FALSE}
 
-```{r}
-MI_corr <- sp.correlogram(wm_q,
-                          nga_wp$`wpt non-functional`,
-                          order = 6,
-                          method = "I",
-                          style = "W")
 plot(MI_corr)
+
+
 ```
 
-```{r}
-print(MI_corr)
+From the correlogram, it tells that Moran's \| decreasing when lags increase. Which means that the observation is moving more Dispersed with increasing of distance.
+
+```{r,eval=FALSE}
+plot(MI_corr_F)
 ```
 
-Compute local Moran's \|
+From the correlogram, it tells that Moran's \| decreasing when lags increase. Which means that the observation is moving more Dispersed with increasing of distance.
+
+## Cluster and Outlier Analysis
+
+local Moran's | will be used to identify the spatial cluster and outliers.
 
 ```{r}
 fips <- order(nga_wp$ADM2_EN)
-localMI <- localmoran(nga_wp$`wpt non-functional`,rswm_q)
-head(localMI)
+localMI_dw <- localmoran(nga_wp$`wpt non-functional`, wm73_lw)
+localMI_dw_FUN <- localmoran(nga_wp$`wpt functional`, wm73_lw)
+head(localMI_dw)
 ```
 
 ```{r}
-nga_wp.localMI <- cbind(nga_wp,localMI) %>%
-  rename(Pr.Ii = Pr.z....E.Ii..)
+head(localMI_dw_FUN)
 ```
 
-Mapping local moran's \| values
+*localmoran()* function returns a matrix of values whose columns are:
+
+-   Ii: the local Moran\'s I statistics
+
+-   E.Ii: the expectation of local moran statistic under the randomisation hypothesis
+
+-   Var.Ii: the variance of local moran statistic under the randomisation hypothesis
+
+-   Z.Ii:the standard deviate of local moran statistic
+
+-   Pr(): the p-value of local moran statistic
+
+Mapping the local Moran's \|
 
 ```{r}
-tm_shape(nga_wp.localMI) +
-  tm_fill(col = "Ii",
+nga_wp.localMI <- cbind(nga_wp,localMI_dw) %>%
+  rename(Pr.Ii.nf = Pr.z....E.Ii..)
+nga_wp.localMI <- cbind(nga_wp.localMI,localMI_dw_FUN) %>%
+  rename(Pr.Ii.f = Pr.z....E.Ii..)
+```
+
+#### Mapping local Moran's I value
+
+To identify the outliers and clusters, we will filter all the areas which are not statistically significant.
+
+```{r}
+Moran_NF <- tm_shape(nga_wp.localMI) + 
+  tm_fill("white") +
+  tm_borders("grey", lwd = 0.5, alpha = 0.5) +
+  tm_shape(nga_wp.localMI[nga_wp.localMI$Pr.Ii.nf <= 0.05,]) +
+  tm_fill(col = "Ii", 
           style = "pretty",
           palette = "RdBu",
           title = "local moran statistics") +
   tm_borders(alpha = 0.5) +
-  tm_layout(legend.width = 0.35,
-            legend.height = 0.25)
+  tm_layout(main.title = "Local Moran I value for p < 0.05 (Non Functional)",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            title = "Fixed Distance Weight",
+            title.size = 0.6,
+            legend.height = 0.25,
+            legend.width = 0.35)
+  
+
+Moran_F <- tm_shape(nga_wp.localMI) + 
+  tm_fill("white") +
+  tm_borders("grey", lwd = 0.5, alpha = 0.5) +
+  tm_shape(nga_wp.localMI[nga_wp.localMI$Pr.Ii.f <= 0.05,]) +
+  tm_fill(col = "Ii.1", 
+          style = "pretty",
+          palette = "RdBu",
+          title = "local moran statistics") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Local Moran I value for p < 0.05 (Functional)",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            title = "Fixed Distance Weight",
+            title.size = 0.6,
+            legend.height = 0.25,
+            legend.width = 0.35)
+
+tmap_arrange(Moran_NF, Moran_F, asp = 1, ncol = 2)
 ```
 
-Mapping local Moran's \| p-values
+#### Mapping local Moran's I p-values
 
 ```{r}
-tm_shape(nga_wp.localMI) +
-  tm_fill(col = "Pr.Ii",
-          breaks = c(-Inf,0.001, 0.01, 0.05, 0.1,Inf),
-          palette = "-Blues",
+p_value_nf <- tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Pr.Ii.nf", 
+          breaks=c(-Inf, 0.001, 0.01, 0.05, 0.1, Inf),
+          palette="-Blues",
           title = "local Moran's I p-values") +
   tm_borders(alpha = 0.5) +
-  tm_layout(legend.width = 0.35,
-            legend.height = 0.25)
+  tm_layout(main.title = "P-value (Non-Functional)",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            title = "Fixed Distance Weight",
+            title.size = 0.6,
+            legend.height = 0.25,
+            legend.width = 0.35)
+
+
+p_value_f <- tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Pr.Ii.f", 
+          breaks=c(-Inf, 0.001, 0.01, 0.05, 0.1, Inf),
+          palette="-Greens",
+          title = "local Moran's I p-values" ) +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "P-value (Functional)",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            title = "Fixed Distance Weight",
+            title.size = 0.6,
+            legend.height = 0.25,
+            legend.width = 0.35)
+
+tmap_arrange(p_value_nf, p_value_f, asp=1, ncol=2)
 ```
 
-Mapping both local Moran's \| values and p-values
+#### Mapping both local Moran's I values and p-values
 
 ```{r}
-localMI.map <- tm_shape(nga_wp.localMI) +
+Moran_NF <- tm_shape(nga_wp.localMI) + 
+  tm_fill("white") +
+  tm_borders("grey", lwd = 0.5, alpha = 0.5) +
+  tm_shape(nga_wp.localMI[nga_wp.localMI$Pr.Ii.nf <= 0.05,]) +
   tm_fill(col = "Ii", 
-          style = "pretty", 
+          style = "pretty",
+          palette = "RdBu",
           title = "local moran statistics") +
-  tm_borders(alpha = 0.5)
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Local Moran I value for p < 0.05 (Non Functional)",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            title = "Fixed Distance Weight",
+            title.size = 0.6,
+            legend.height = 0.25,
+            legend.width = 0.35)
+  
 
-pvalue.map <- tm_shape(nga_wp.localMI) +
-  tm_fill(col = "Pr.Ii", 
+Moran_F <- tm_shape(nga_wp.localMI) + 
+  tm_fill("white") +
+  tm_borders("grey", lwd = 0.5, alpha = 0.5) +
+  tm_shape(nga_wp.localMI[nga_wp.localMI$Pr.Ii.f <= 0.05,]) +
+  tm_fill(col = "Ii.1", 
+          style = "pretty",
+          palette = "RdBu",
+          title = "local moran statistics") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Local Moran I value for p < 0.05 (Functional)",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            title = "Fixed Distance Weight",
+            title.size = 0.6,
+            legend.height = 0.25,
+            legend.width = 0.35)
+
+p_value_nf <- tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Pr.Ii.nf", 
           breaks=c(-Inf, 0.001, 0.01, 0.05, 0.1, Inf),
-          palette="-Blues", 
+          palette="-Blues",
           title = "local Moran's I p-values") +
-  tm_borders(alpha = 0.5)
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "P-value (Non-Functional)",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            title = "Fixed Distance Weight",
+            title.size = 0.6,
+            legend.height = 0.25,
+            legend.width = 0.35)
 
-tmap_arrange(localMI.map, pvalue.map, ncol=2)
+
+p_value_f <- tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Pr.Ii.f", 
+          breaks=c(-Inf, 0.001, 0.01, 0.05, 0.1, Inf),
+          palette="-Greens",
+          title = "local Moran's I p-values" ) +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "P-value (Functional)",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            title = "Fixed Distance Weight",
+            title.size = 0.6,
+            legend.height = 0.25,
+            legend.width = 0.35)
+tmap_arrange(Moran_NF, Moran_F, p_value_nf, p_value_f, asp=1, ncol=2)
 ```
 
-Creating a Lisa cluster Map
+## Creating a LISA Cluster Map
+
+### Plotting Moran scatterplot
+
+```{r}
+nci <- moran.plot(nga_wp$`wpt non-functional`, wm73_lw,
+                  labels=as.character(nga_wp$ADM2_EN), 
+                  xlab="Non Functional Water Point", 
+                  ylab="Spatially Lag Non Funtional Water Point")
+```
+
+```{r}
+nci1 <- moran.plot(nga_wp$`wpt functional`, wm73_lw,
+                  labels=as.character(nga_wp$ADM2_EN), 
+                  xlab="Functional Water Point", 
+                  ylab="Spatially Lag Funtional Water Point")
+
+```
+
+### Preparing LISA map classes
+
+```{r}
+nga_wp$Z.nonfunc <- scale(nga_wp$`wpt non-functional`) %>% 
+  as.vector 
+nga_wp$Z.Func <- scale(nga_wp$`wpt functional`)%>%
+  as.vector
+```
+
+```{r}
+
+nci2 <- moran.plot(nga_wp$Z.nonfunc, wm73_lw,
+                   labels=as.character(nga_wp$ADM2_EN),
+                   xlab="z-Non-functional Water Point", 
+                   ylab="Spatially Lag z-Non-functional Water Point")
+
+```
+
+```{r}
+nci3 <- moran.plot(nga_wp$Z.Fun, wm73_lw,
+                  labels=as.character(nga_wp$ADM2_EN), 
+                  xlab="z-Functional Water Point", 
+                  ylab="Spatially Lag Funtional Water Point")
+```
+
+The code chunks below show the steps to prepare a LISA cluster map.
+
+```{r}
+quadrant <- vector(mode="numeric",length=nrow(localMI_dw))
+                   
+```
+
+```{r}
+
+quadrant2 <- vector(mode="numeric",length=nrow(localMI_dw_FUN))
+```
+
+scale waterpoint
+
+```{r}
+DV <- scale(nga_wp.localMI$wpt.non.functional)
+DV_Fun <- scale(nga_wp.localMI$wpt.functional)  
+```
+
+Finding the lag of the scaled percentage of functional and non-functional water point.
+
+```{r}
+C_mI <- lag.listw(wm73_lw, DV)
+C_mI_Fun <- lag.listw(wm73_lw, DV_Fun)
+
+```
+
+Making use of Moran Scatterplot below, we filter all the area with p-value\<0.05 and identify significant areas.
+
+```{r}
+MIplot <- data.frame(cbind(DV,C_mI,localMI_dw[,5]))
+MIplot <- MIplot %>%
+  filter (X3 < 0.05)
+plot(x = MIplot$X1, y = MIplot$X2, main = "Moran Scatterplot Fixed Distance", xlab = "scaled Non-Functional (%)", ylab = "Lag scaled Non-Functional (%)")
+abline(h = 0, v = 0)
+```
+
+```{r}
+MIplot <- data.frame(cbind(DV_Fun,C_mI,localMI_dw[,5]))
+MIplot <- MIplot %>%
+  filter (X3 < 0.05)
+plot(x = MIplot$X1, y = MIplot$X2, main = "Moran Scatterplot Fixed Distance", xlab = "scaled Functional (%)", ylab = "Lag scaled Functional (%)")
+abline(h = 0, v = 0)
+```
+
+Now we will
+
+```{r}
+signif <- 0.05 
+quadrant[DV >0 & C_mI>0] <- 4      
+quadrant[DV <0 & C_mI<0] <- 1      
+quadrant[DV <0 & C_mI>0] <- 2
+quadrant[DV >0 & C_mI<0] <- 3
+quadrant[localMI_dw[,5]>signif] <- 0
+#nga_wp.localMI$quadrant <- quadrant
+
+#quadrant2[DV_Fun >0 & C_mI>0] <- 4      
+#quadrant2[DV_Fun <0 & C_mI<0] <- 1      
+#quadrant2[DV_Fun <0 & C_mI>0] <- 2
+#quadrant2[DV_Fun >0 & C_mI<0] <- 3
+#quadrant2[localMI_dw[,5]>signif] <- 0
+#nga_wp.localMI$quadrantfun <- quadrant2
+```
+
+Plotting Lisa map
+
+```{r}
+#nga_wp.localMI$quadrant <- quadrant
+#colors <- c("#ffffff", "#2c7bb6", "#abd9e9", "#fdae61", "#d7191c")
+#clusters <- c("insignificant", "low-low", "low-high", "high-low", "high-high")
+#
+#tm_shape(nga_wp.localMI) +
+#  tm_fill(col = "quadrant", 
+#          style = "cat", 
+#          palette = colors[c(sort(unique(quadrant)))+1], 
+#          labels = clusters[c(sort(unique(quadrant)))+1],
+#         popup.vars = c("")) +
+#  tm_view(set.zoom.limits = c(11,17)) +
+#  tm_borders(alpha=0.5)
+```
+
+```{r}
+#nga_wp.localMI$quadrantfun <- quadrant
+#colors <- c("#ffffff", "#2c7bb6", "#abd9e9", "#fdae61", "#d7191c")
+#clusters <- c("insignificant", "low-low", "low-high", "high-low", "high-high")
+
+#tm_shape(nga_wp.localMI) +
+#  tm_fill(col = "quadrantfun", 
+#          style = "cat", 
+#          palette = colors[c(sort(unique(quadrant2)))+1], 
+#          labels = clusters[c(sort(unique(quadrant2)))+1],
+#          popup.vars = c("")) +
+#  tm_view(set.zoom.limits = c(11,17)) +
+#  tm_borders(alpha=0.5)
+```
+
+For effective interpretation, it is better to plot both the local Moran's I values map and its corresponding p-values map next to each other.
+
+```{r}
+Water_Point <- qtm(nga_wp, "wpt non-functional") +
+  tm_view(set.zoom.limits = c(11,17)) +
+  tm_borders(alpha=0.5) + 
+  tm_layout(legend.height = 0.25,
+            legend.width = 0.35,
+            main.title = "Number of non-functional water point",
+            main.title.size = 0.7,main.title.fontface = "bold",
+            main.title.position = "center")
+
+nga_wp.localMI$quadrant <- quadrant
+colors <- c("#ffffff", "#2c7bb6", "#abd9e9", "#fdae61", "#d7191c")
+clusters <- c("insignificant", "low-low", "low-high", "high-low", "high-high")
+
+LISAmap <- tm_shape(nga_wp.localMI) +
+  tm_fill(col = "quadrant", 
+          style = "cat", 
+          palette = colors[c(sort(unique(quadrant)))+1], 
+          labels = clusters[c(sort(unique(quadrant)))+1],
+          popup.vars = c("")) +
+  tm_view(set.zoom.limits = c(11,17)) +
+  tm_borders(alpha=0.5) + 
+  tm_layout(legend.height = 0.25,
+            legend.width = 0.35,
+            main.title = "LISA Map with Quadrant",
+            main.title.size = 0.7,main.title.fontface = "bold",
+            main.title.position = "center")
+
+tmap_arrange(Water_Point, LISAmap, Moran_NF, p_value_nf, asp=1, ncol=2)
+```
+
+```{r}
+
+```
+
+Hot spot Area Analysis
+
+### Computing Gi statistics
+
+### Gi statistic using fixed distance
+
+```{r}
+fips <- order(nga_wp$ADM2_EN)
+gi.fixed <- localG(nga_wp$`wpt non-functional`,wm73_lw)
+gi.fixed
+```
+
+```{r}
+fips <- order(nga_wp$ADM2_EN)
+gi.fixed_fun <- localG(nga_wp$`wpt functional`,wm73_lw)
+gi.fixed_fun
+```
+
+```{r}
+nga_wp.gi <- cbind(nga_wp, as.matrix(gi.fixed)) %>%
+  rename(gstat_fixed = as.matrix.gi.fixed.)
+```
+
+```{r}
+nga_wp.gi_fun <- cbind(nga_wp, as.matrix(gi.fixed_fun)) %>%
+  rename(gstat_fixed_fun = as.matrix.gi.fixed_fun.)
+```
+
+```{r}
+nonfunction <- qtm(nga_wp, "wpt non-functional")
+
+
+Gimap <- tm_shape(nga_wp.gi) +
+  tm_fill(col = "gstat_fixed",
+          midpoint = 0,
+          style = "pretty",
+          palette="-RdBu",
+          title = "local Gi") +
+  tm_borders(alpha = 0.5)
+
+tmap_arrange(nonfunction, Gimap,  asp=1, ncol=2)
+```
+
+```{r}
+functional <- qtm(nga_wp, "wpt functional")
+
+
+Gimap_fun <- tm_shape(nga_wp.gi_fun) +
+  tm_fill(col = "gstat_fixed_fun",
+          midpoint = 0,
+          style = "pretty",
+          palette="-RdBu",
+          title = "local Gi") +
+  tm_borders(alpha = 0.5)
+
+tmap_arrange(functional, Gimap_fun,  asp=1, ncol=2)
+```
+
+## 
