@@ -346,7 +346,7 @@ From the correlogram, it tells that Moran's \| decreasing when lags increase. Wh
 
 ## Cluster and Outlier Analysis
 
-local Moran's | will be used to identify the spatial cluster and outliers.
+local Moran's \| will be used to identify the spatial cluster and outliers.
 
 ```{r}
 fips <- order(nga_wp$ADM2_EN)
@@ -361,7 +361,7 @@ head(localMI_dw_FUN)
 
 *localmoran()* function returns a matrix of values whose columns are:
 
--   Ii: the local Moran\'s I statistics
+-   Ii: the local Moran's I statistics
 
 -   E.Ii: the expectation of local moran statistic under the randomisation hypothesis
 
@@ -583,7 +583,7 @@ quadrant <- vector(mode="numeric",length=nrow(localMI_dw))
 quadrant2 <- vector(mode="numeric",length=nrow(localMI_dw_FUN))
 ```
 
-scale waterpoint
+## scale waterpoint
 
 ```{r}
 DV <- scale(nga_wp.localMI$wpt.non.functional)
@@ -616,8 +616,6 @@ plot(x = MIplot$X1, y = MIplot$X2, main = "Moran Scatterplot Fixed Distance", xl
 abline(h = 0, v = 0)
 ```
 
-Now we will
-
 ```{r}
 signif <- 0.05 
 quadrant[DV >0 & C_mI>0] <- 4      
@@ -635,7 +633,7 @@ quadrant[localMI_dw[,5]>signif] <- 0
 #nga_wp.localMI$quadrantfun <- quadrant2
 ```
 
-Plotting Lisa map
+## Plotting Lisa map
 
 ```{r}
 #nga_wp.localMI$quadrant <- quadrant
@@ -704,7 +702,7 @@ tmap_arrange(Water_Point, LISAmap, Moran_NF, p_value_nf, asp=1, ncol=2)
 
 ```
 
-Hot spot Area Analysis
+## Hot spot Area Analysis
 
 ### Computing Gi statistics
 
