@@ -226,6 +226,11 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   <ul class="collapse">
   <li><a href="#plotting-moran-scatterplot" id="toc-plotting-moran-scatterplot" class="nav-link" data-scroll-target="#plotting-moran-scatterplot">Plotting Moran scatterplot</a></li>
   <li><a href="#preparing-lisa-map-classes" id="toc-preparing-lisa-map-classes" class="nav-link" data-scroll-target="#preparing-lisa-map-classes">Preparing LISA map classes</a></li>
+  </ul></li>
+  <li><a href="#scale-waterpoint" id="toc-scale-waterpoint" class="nav-link" data-scroll-target="#scale-waterpoint">scale waterpoint</a></li>
+  <li><a href="#plotting-lisa-map" id="toc-plotting-lisa-map" class="nav-link" data-scroll-target="#plotting-lisa-map">Plotting Lisa map</a></li>
+  <li><a href="#hot-spot-area-analysis" id="toc-hot-spot-area-analysis" class="nav-link" data-scroll-target="#hot-spot-area-analysis">Hot spot Area Analysis</a>
+  <ul class="collapse">
   <li><a href="#computing-gi-statistics" id="toc-computing-gi-statistics" class="nav-link" data-scroll-target="#computing-gi-statistics">Computing Gi statistics</a></li>
   <li><a href="#gi-statistic-using-fixed-distance" id="toc-gi-statistic-using-fixed-distance" class="nav-link" data-scroll-target="#gi-statistic-using-fixed-distance">Gi statistic using fixed distance</a></li>
   </ul></li>
@@ -692,7 +697,7 @@ alternative hypothesis: greater</code></pre>
 </div>
 <p><em>localmoran()</em> function returns a matrix of values whose columns are:</p>
 <ul>
-<li><p>Ii: the local Moran's I statistics</p></li>
+<li><p>Ii: the local Moran’s I statistics</p></li>
 <li><p>E.Ii: the expectation of local moran statistic under the randomisation hypothesis</p></li>
 <li><p>Var.Ii: the variance of local moran statistic under the randomisation hypothesis</p></li>
 <li><p>Z.Ii:the standard deviate of local moran statistic</p></li>
@@ -917,7 +922,10 @@ alternative hypothesis: greater</code></pre>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>quadrant2 <span class="ot">&lt;-</span> <span class="fu">vector</span>(<span class="at">mode=</span><span class="st">"numeric"</span>,<span class="at">length=</span><span class="fu">nrow</span>(localMI_dw_FUN))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>scale waterpoint</p>
+</section>
+</section>
+<section id="scale-waterpoint" class="level2">
+<h2 class="anchored" data-anchor-id="scale-waterpoint">scale waterpoint</h2>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>DV <span class="ot">&lt;-</span> <span class="fu">scale</span>(nga_wp.localMI<span class="sc">$</span>wpt.non.functional)</span>
 <span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>DV_Fun <span class="ot">&lt;-</span> <span class="fu">scale</span>(nga_wp.localMI<span class="sc">$</span>wpt.functional)  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -948,7 +956,6 @@ alternative hypothesis: greater</code></pre>
 <p><img src="Take-home_Ex1_files/figure-html/unnamed-chunk-48-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
-<p>Now we will</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>signif <span class="ot">&lt;-</span> <span class="fl">0.05</span> </span>
 <span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>quadrant[DV <span class="sc">&gt;</span><span class="dv">0</span> <span class="sc">&amp;</span> C_mI<span class="sc">&gt;</span><span class="dv">0</span>] <span class="ot">&lt;-</span> <span class="dv">4</span>      </span>
@@ -965,7 +972,9 @@ alternative hypothesis: greater</code></pre>
 <span id="cb59-13"><a href="#cb59-13" aria-hidden="true" tabindex="-1"></a><span class="co">#quadrant2[localMI_dw[,5]&gt;signif] &lt;- 0</span></span>
 <span id="cb59-14"><a href="#cb59-14" aria-hidden="true" tabindex="-1"></a><span class="co">#nga_wp.localMI$quadrantfun &lt;- quadrant2</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Plotting Lisa map</p>
+</section>
+<section id="plotting-lisa-map" class="level2">
+<h2 class="anchored" data-anchor-id="plotting-lisa-map">Plotting Lisa map</h2>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="co">#nga_wp.localMI$quadrant &lt;- quadrant</span></span>
 <span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a><span class="co">#colors &lt;- c("#ffffff", "#2c7bb6", "#abd9e9", "#fdae61", "#d7191c")</span></span>
@@ -1031,8 +1040,9 @@ alternative hypothesis: greater</code></pre>
 <div class="cell">
 
 </div>
-<p>Hot spot Area Analysis</p>
 </section>
+<section id="hot-spot-area-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="hot-spot-area-analysis">Hot spot Area Analysis</h2>
 <section id="computing-gi-statistics" class="level3">
 <h3 class="anchored" data-anchor-id="computing-gi-statistics">Computing Gi statistics</h3>
 </section>
