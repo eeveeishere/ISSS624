@@ -1,6 +1,7 @@
 ---
-title: "Hands-on_Ex3"
+title: "In-class_Ex2"
 editor: visual
+format: html
 ---
 
 # Geographical Segmentation with Spatially Constrained Clustering Techniques
