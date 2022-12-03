@@ -2,11 +2,6 @@
 title: "In-class_Ex3"
 editor: visual
 format: html
-execute: 
-  echo: true
-  warning: false
-  message: false
-  fig-retine: 3
 ---
 
 # Geographical Segmentation with Spatially Constrained Clustering Techniques
