@@ -1,5 +1,5 @@
 ---
-title: "Hands-on EX4"
+title: "Hands-on Exercise 4"
 editor: visual
 format: html
 ---
@@ -24,7 +24,7 @@ Before we get started, it is important for us to install the necessary R package
 
 The R packages needed for this exercise are as follows:
 
--   R package for building OLS and performing diagnostics tests
+-   R package for building OLS and performing diagnostics tests.
 
     -   [**olsrr**](https://olsrr.rsquaredacademy.com/)
 
